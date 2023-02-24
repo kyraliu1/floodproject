@@ -1,5 +1,5 @@
-#setwd("/Volumes/KYRADRIVE/floodproject") #kyra mac wd
-setwd("D:/floodproject") #kyra windows wd
+setwd("/Volumes/KYRADRIVE/floodproject") #kyra mac wd
+#setwd("D:/floodproject") #kyra windows wd
 
 library(terra)
 #source: https://www.fema.gov/flood-maps/national-flood-hazard-layer
@@ -41,10 +41,19 @@ floodbound <- vect('national_flood_hazard_layer_fema/NFHL_06_20230121.gdb',layer
 # 32. Water Areas
 #plot(floodbound)
 # sfha = special flood hazard area
-a = list.files("i15_Crop_Mapping_2019",pattern = '.shp$',full.names = 1)
+
+#reading in files
+a = list.files("i15_Crop_Mapping_2019",pattern = '.shp$',full.names = 1) 
 landuse<-vect(a)
+names(landuse)
 
-uses <- landuse[['MAIN_CROP']]
+#categories 
+uses <- landuse$SYMB_CLASS
 cats <- unique(uses)
+agcats <- cats[1:10]
+agind <-  unlist(sapply(agcats,grep,uses,value = 0))
 
+urbanind<- grep(uses,cats[11],value = 0)
 
+landuse$SYMB_CLASS[agind]<- "agricultural land"
+landuse$SYMB_CLASS[urbanind] <- "urban land"
