@@ -5,7 +5,26 @@ library(terra)
 #source: https://www.fema.gov/flood-maps/national-flood-hazard-layer
 floodarea <- vect('national_flood_hazard_layer_fema/NFHL_06_20230121.gdb',layer = "S_FLD_HAZ_AR")
 floodbound <- vect('national_flood_hazard_layer_fema/NFHL_06_20230121.gdb',layer = "S_FLD_HAZ_LN")
+#making sense of and organizing fema data
+names(floodarea)
+subtypes<- unique(floodarea$ZONE_SUBTY) #special floodzones
+zonetypes<- unique(floodarea$FLD_ZONE)
 
+# 
+# ZONE A Area inundated by the Base Flood with no Base Flood Elevations determined.
+# ZONE AE Area inundated by the Base Flood with Base Flood Elevations determined.
+# ZONE AH Area inundated by the Base Flood with flood depths of 1 to 3 feet (usually areas of
+#                                                                            ponding); Base Flood Elevations determined.
+# ZONE AO Area inundated by the Base Flood with flood depths of 1 to 3 feet (usually sheet flow
+#                                                                            on sloping terrain); average depths determined. For areas of alluvial fan flooding,
+# velocities are also determined.
+# ZONE V Coastal flood zone with velocity hazard (wave action); no Base Flood Elevations
+# determined.
+# ZONE VE Coastal flood zone with velocity hazard (wave action); Base Flood Elevations
+# determined
+
+
+#layer names from fema
 # 0. NFHL Availability
 # 1. LOMRs
 # 2. LOMAs
@@ -47,13 +66,14 @@ a = list.files("i15_Crop_Mapping_2019",pattern = '.shp$',full.names = 1)
 landuse<-vect(a)
 names(landuse)
 
-#categories 
+#listing all categories, finding the unique ones, setting all of the crops to ag land
+# and U as urban
 uses <- landuse$SYMB_CLASS
 cats <- unique(uses)
 agcats <- cats[1:10]
 agind <-  unlist(sapply(agcats,grep,uses,value = 0))
 
 urbanind<- grep(uses,cats[11],value = 0)
-
+# replacing the values in the column
 landuse$SYMB_CLASS[agind]<- "agricultural land"
 landuse$SYMB_CLASS[urbanind] <- "urban land"
