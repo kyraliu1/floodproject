@@ -7,24 +7,40 @@ floodarea <- vect('national_flood_hazard_layer_fema/NFHL_06_20230121.gdb',layer 
 floodbound <- vect('national_flood_hazard_layer_fema/NFHL_06_20230121.gdb',layer = "S_FLD_HAZ_LN")
 #making sense of and organizing fema data
 names(floodarea)
+# names(floodbound)<-c( "DFIRM_ID","VERSION_ID","FLD_AR_ID","STUDY_TYP",  "FLD_ZONE",   
+# "ZONE_SUBTY","SFHA_TF","STATIC_BFE","V_DATUM","DEPTH", 
+# "LEN_UNIT", "VELOCITY", "VEL_UNIT", "AR_REVERT","AR_SUBTRV",   
+#  "BFE_REVERT",   "DEP_REVERT",   "DUAL_ZONE",    "SOURCE_CIT",   "GFID",        
+# "SHAPE_Length", "SHAPE_Area")
 subtypes<- unique(floodarea$ZONE_SUBTY) #special floodzones
-zonetypes<- unique(floodarea$FLD_ZONE)
 
-# 
+zonetypes<- unique(floodarea$FLD_ZONE) #zone types, see explanations below
+# HIGH-RISK AREAS: ALSO KNOWN AS THE SPECIAL FLOOD HAZARD AREA
 # ZONE A Area inundated by the Base Flood with no Base Flood Elevations determined.
 # ZONE AE Area inundated by the Base Flood with Base Flood Elevations determined.
-# ZONE AH Area inundated by the Base Flood with flood depths of 1 to 3 feet (usually areas of
-#                                                                            ponding); Base Flood Elevations determined.
-# ZONE AO Area inundated by the Base Flood with flood depths of 1 to 3 feet (usually sheet flow
-#                                                                            on sloping terrain); average depths determined. For areas of alluvial fan flooding,
+# ZONE AH Area inundated by the Base Flood with flood depths of 1 to 3 feet 
+#(usually areas of ponding); Base Flood Elevations determined.
+# ZONE AO Area inundated by the Base Flood with flood depths of 1 to 3 feet
+#(usually sheet flow on sloping terrain); average depths determined. For areas of alluvial fan flooding,
 # velocities are also determined.
 # ZONE V Coastal flood zone with velocity hazard (wave action); no Base Flood Elevations
 # determined.
 # ZONE VE Coastal flood zone with velocity hazard (wave action); Base Flood Elevations
 # determined
 
+# MODERATE-TO-LOW RISK AREAS: THESE ARE NON-SPECIAL FLOOD HAZARD AREAS
+# ZONE X (0.2%) This zone designation is for multiple risks including areas of the 0.2% annual
+#         chance flood; areas of the 1% annual chance flood with average depths of less
+#         than 1 foot or with drainage areas less than 1 square mile; and areas protected
+#         by levees from the 1% annual chance flood.
+# ZONE X Areas determined to be outside the 0.2% annual chance floodplain
 
-#layer names from fema
+#ZONE D Areas in which flood hazards are undetermined, but possib
+
+# Zone A99
+# Areas with a 1% annual chance of flooding that will be protected by a Federal flood control system where 
+# construction has reached specified legal requirements. No depths or base flood elevations are shown within these zones.
+# layer names from fema
 # 0. NFHL Availability
 # 1. LOMRs
 # 2. LOMAs
@@ -64,7 +80,7 @@ zonetypes<- unique(floodarea$FLD_ZONE)
 #reading in files
 a = list.files("i15_Crop_Mapping_2019",pattern = '.shp$',full.names = 1) 
 landuse<-vect(a)
-names(landuse)
+#names(landuse)
 
 #listing all categories, finding the unique ones, setting all of the crops to ag land
 # and U as urban
@@ -73,7 +89,12 @@ cats <- unique(uses)
 agcats <- cats[1:10]
 agind <-  unlist(sapply(agcats,grep,uses,value = 0))
 
-urbanind<- grep(uses,cats[11],value = 0)
+#urbanind<- grep(uses,cats[11],value = 0)
 # replacing the values in the column
 landuse$SYMB_CLASS[agind]<- "agricultural land"
-landuse$SYMB_CLASS[urbanind] <- "urban land"
+landuse$SYMB_CLASS[-agind] <- "urban land"
+
+agflood <- intersect(landuse[agind],floodbound)
+urbflood <- intersect(landuse[-agind],floodbound)
+
+
