@@ -1,8 +1,29 @@
-setwd("/Volumes/KYRADRIVE/floodproject") #kyra mac wd
-#setwd("D:/floodproject") #kyra windows wd
+#setwd("/Volumes/KYRADRIVE/floodproject") #kyra mac wd
+setwd("F:/floodproject") #kyra windows wd
 
 library(terra)
+
+# fldfiname <- "femadata/NFHL_06_20230220.zip"
+# if (!file.exists(fldfiname)){
+# dir.create("femadata")
+#  download.file("https://hazards.fema.gov/nfhlv2/output/State/NFHL_06_20230220.zip",
+#                destfile= fldfiname,mode = "wb")
+#  file <- unzip(list.files("./femadata"), exdir = "./femadata")}
+
+url2 <- "https://data.cnra.ca.gov/dataset/6c3d65e3-35bb-49e1-a51e-49d5a2cf09a9/resource/1da7b37a-dd97-4b69-a86a-fe824a252eaf/download/i15_crop_mapping_2019.zip"
+landname <- "./landdata/i15_Crop_Mapping_2019.zip"
+if (!file.exists(landname)){
+dir.create("landdata")
+ download.file(url2,
+               destfile= landname,mode = "wb")
+usefiles <-unzip("./landdata/i15_Crop_Mapping_2019.zip")
+landuse <- vect(usefiles[7])
+} else {usefiles <-unzip("./landdata/i15_Crop_Mapping_2019.zip")
+landuse <- vect(usefiles[7])}
+
+#msc.fema.gov/portal/downloadProduct?productTypeID=NFHL&productSubTypeID=NFHL_STATE_DATA&productID=NFHL_06_20230220.zip",#https://
 #source: https://www.fema.gov/flood-maps/national-flood-hazard-layer
+#https://hazards.fema.gov/nfhlv2/output/State/NFHL_06_20230121.zip
 floodarea <- vect('national_flood_hazard_layer_fema/NFHL_06_20230121.gdb',layer = "S_FLD_HAZ_AR")
 floodbound <- vect('national_flood_hazard_layer_fema/NFHL_06_20230121.gdb',layer = "S_FLD_HAZ_LN")
 #making sense of and organizing fema data
@@ -16,6 +37,7 @@ subtypes<- unique(floodarea$ZONE_SUBTY) #special floodzones
 
 zonetypes<- unique(floodarea$FLD_ZONE) #zone types, see explanations below
 # HIGH-RISK AREAS: ALSO KNOWN AS THE SPECIAL FLOOD HAZARD AREA
+
 # ZONE A Area inundated by the Base Flood with no Base Flood Elevations determined.
 # ZONE AE Area inundated by the Base Flood with Base Flood Elevations determined.
 # ZONE AH Area inundated by the Base Flood with flood depths of 1 to 3 feet 
@@ -78,8 +100,8 @@ zonetypes<- unique(floodarea$FLD_ZONE) #zone types, see explanations below
 # sfha = special flood hazard area
 
 #reading in files
-a = list.files("i15_Crop_Mapping_2019",pattern = '.shp$',full.names = 1) 
-landuse<-vect(a)
+# a = list.files("i15_Crop_Mapping_2019",pattern = '.shp$',full.names = 1) 
+# landuse<-vect(a)
 #names(landuse)
 
 #listing all categories, finding the unique ones, setting all of the crops to ag land
@@ -95,6 +117,9 @@ landuse$SYMB_CLASS[agind]<- "agricultural land"
 landuse$SYMB_CLASS[-agind] <- "urban land"
 
 agflood <- intersect(landuse[agind],floodbound)
+agflood$SYMB_CLASS
 urbflood <- intersect(landuse[-agind],floodbound)
+plot(landuse, main = "CA Agricultural Land in Flood Zones")#, add = TRUE)
+lines(agflood,col = "blue")
 
 
