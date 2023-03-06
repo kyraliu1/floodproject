@@ -54,6 +54,13 @@ urbflood <- intersect(landuse[-agind],floodbound)
 plotting
 ```{r}
 plot(landuse, main = "CA Agricultural Land in Flood Zones")#, add = TRUE)
-lines(agflood,col = "blue")
-legend("topright",col =c("blue","black"),legend = c("flood zones","agricultural land"))
+lines(agflood[agind],col = "blue")
+legend("topright",col =c("blue","black"),legend = c("flood zones","agricultural land"),pch = 15)
+
+plot(landuse[-agind], main = "CA Urban Land in Flood Zones")#, add = TRUE)
+lines(urbflood,col = "blue")
+legend("topright",col =c("blue","black"),legend = c("flood zones","urban land"),pch = 15)
+```
+```{r}
+asd <- relate(landuse[agind],floodbound, "intersects")
 ```
