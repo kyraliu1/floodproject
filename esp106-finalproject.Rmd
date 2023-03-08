@@ -10,6 +10,8 @@ path <- '...'
 knitr::opts_knit$set(root.dir=
                        '/Users/sunga/Documents/GitHub/floodproject')
 library(terra)
+#hi
+
 ```
 
 ```{r}
