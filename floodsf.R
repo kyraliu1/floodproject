@@ -1,9 +1,12 @@
+#function that allows you to put in any county in California and get landuse data
+# and national flood hazard layer for that county and save as rds
+
 library(terra)
 library(geodata)
-countyname = 'Yolo'
+countyname = 'los angeles'
 setwd("/Volumes/KYRADRIVE/floodproject")
  flcounty <- function(countyname) {
-  
+  #if nfhl does not exist in directory, download from fema
   fldfiname <- "femadata/NFHL_06_20230220.zip"
   if (!file.exists(fldfiname)){
     dir.create("femadata")
@@ -11,25 +14,34 @@ setwd("/Volumes/KYRADRIVE/floodproject")
                   destfile= fldfiname,mode = "wb")
     file <- unzip(list.files("./femadata"), exdir = "./femadata")
   }
+  # take input county name as lower for string comparison
   clname <- tolower(countyname)
+  # create name of rds to be created
   fldrds <- paste0(clname,"flood.rds")
+  # if rds for nfhl county does not already exist in directory, create and save
+  #checks is county is in california before cropping, also checks for duplicates
   if (!file.exists(fldrds)) {
-  floodarea <- terra::vect('./femadata/NFHL_06_20230220/NFHL_06_20230220.gdb',layer = "S_FLD_HAZ_AR")
-  usa  = geodata::gadm("USA", level=2, path=".")
-  county_idx <- grep(paste0(clname, collapse="|"), tolower(usa$NAME_2))
-  
-  if (length(county_idx) == 0) {
-    stop(paste("County", countyname, "not found in USA shapefile"))
-  } else if (length(county_idx) > 1) {
-    warning(paste("Multiple matches found for county", countyname))
+    usa  = geodata::gadm("USA", level=2, path=".")
+    usa = usa[usa$NAME_1=="California"]
+    county_idx <- grep(paste0(clname, collapse="|"), tolower(usa$NAME_2))
+    # stops is county is not in california
+    if (length(county_idx) == 0) {
+      stop(paste("County", countyname, "not found in California"))
+    } else if (length(county_idx) > 1) {
+      warning(paste("Multiple matches found for county", countyname))
+    }
+    # subsets to county
+    county <- usa[county_idx, ]  
+    # creating spat vector from nfhl layer
+  floodarea <- terra::vect('./femadata/NFHL_06_20230220/NFHL_06_20230220.gdb',
+                           layer = "S_FLD_HAZ_AR")
+ 
+  #cropping to county and saving to rds
+  floodcounty = terra::crop(floodarea, county)
+  saveRDS(floodcounty, fldrds)
   }
   
-  county <- usa[county_idx, ]  
-  
-  floodcounty = terra::crop(floodarea, county)
-  saveRDS(floodcounty, fldrds)}
-  
-  
+  # if land use data does not exist in directory, download from CNRA
   landname <- "./landdata/i15_Crop_Mapping_2019.zip"
   if (!file.exists(landname)){
     dir.create("landdata")
@@ -39,7 +51,9 @@ setwd("/Volumes/KYRADRIVE/floodproject")
     unzip("./landdata/i15_Crop_Mapping_2019.zip")
     #landuse <- vect(usefiles[7])
   } 
+  # create name of rds to be created
   lu_rds <- paste0(countyname,"landu.rds")
+  #if the rds for landuse does not exist for county, crops to county and saves
   if (!file.exists(lu_rds)) {
     usa  = geodata::gadm("USA", level=2, path=".")
     county = usa[usa$NAME_2 == countyname, ]
@@ -50,4 +64,4 @@ setwd("/Volumes/KYRADRIVE/floodproject")
   }
  }
 
-flcounty('yolo')
+flcounty('king county')
