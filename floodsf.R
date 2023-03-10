@@ -26,7 +26,7 @@ setwd("/Volumes/KYRADRIVE/floodproject")
     county_idx <- grep(paste0(clname, collapse="|"), tolower(usa$NAME_2))
     # stops is county is not in california
     if (length(county_idx) == 0) {
-      stop(paste("County", countyname, "not found in California"))
+      stop(paste(countyname, "county not found in California"))
     } else if (length(county_idx) > 1) {
       warning(paste("Multiple matches found for county", countyname))
     }
@@ -39,7 +39,8 @@ setwd("/Volumes/KYRADRIVE/floodproject")
   #cropping to county and saving to rds
   floodcounty = terra::crop(floodarea, county)
   saveRDS(floodcounty, fldrds)
-  }
+  print(paste0(fldrds, " saved to directory"))
+  }else{print(paste0(fldrds, " already exists in directory"))}
   
   # if land use data does not exist in directory, download from CNRA
   landname <- "./landdata/i15_Crop_Mapping_2019.zip"
@@ -56,12 +57,24 @@ setwd("/Volumes/KYRADRIVE/floodproject")
   #if the rds for landuse does not exist for county, crops to county and saves
   if (!file.exists(lu_rds)) {
     usa  = geodata::gadm("USA", level=2, path=".")
-    county = usa[usa$NAME_2 == countyname, ]
+    usa = usa[usa$NAME_1=="California"]
+    county_idx <- grep(paste0(clname, collapse="|"), tolower(usa$NAME_2))
+    # stops is county is not in california
+    if (length(county_idx) == 0) {
+      stop(paste(countyname, "county not found in California"))
+    } else if (length(county_idx) > 1) {
+      warning(paste("Multiple matches found for county", countyname))
+    }
+    # subsets to county
+    county <- usa[county_idx, ]  
     usefiles <-unzip("./landdata/i15_Crop_Mapping_2019.zip", list=TRUE)
     landuse <- terra::vect(usefiles$Name[8])
     lu_county = terra::crop(landuse, county)
     saveRDS(lu_county, lu_rds)
-  }
+    print(paste0(lu_rds, " saved to directory"))
+  }else{print(paste0(lu_rds, " already exists in directory"))}
+ 
  }
 
-flcounty('king county')
+ 
+
