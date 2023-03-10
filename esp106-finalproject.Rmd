@@ -5,69 +5,109 @@ output: pdf_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-path <- '.'
-#hi
-knitr::opts_knit$set(root.dir=
-                       '/Users/sunga/Documents/GitHub/floodproject')
+
+# knitr::opts_knit$set(root.dir= '/Users/sunga/Documents/GitHub/floodproject') # sung wd
+knitr::opts_knit$set(root.dir = "/Volumes/KYRADRIVE/floodproject") # kyra mac wd
 library(terra)
+library(ggplot2)
+library(geodata)
 ```
-
+Creating a function that allows you to put in any county in California and get land use data and national flood hazard layer for that county and save as rds. This allows us to process data for multiple counties much more efficiently. Also, it allows us to save a much smaller (cropped) data set for an individual county rather than having to access both statewide data sets all at once.  
+The function takes in a string of the county's name. If the county exists in California (case insensitive), then it crops both data sets to the specified county and saves each subset data as a RDS. If the county, as inputted, is not in California, the function breaks and returns an error which states that the county does not exist in California.  
+The flood data we have is from FEMA's national flood hazard layer. The land use data is from the California natural resources agency's crop mapping data.  
+If the desired RDS already exists, the function informs the user.  
 ```{r}
-## unsure what the issue is, keeps timing out
-fldfiname <- "femadata/NFHL_06_20230220.zip"
- if (!file.exists(fldfiname)){
-   dir.create("femadata")
-   download.file("https://hazards.fema.gov/nfhlv2/output/State/NFHL_06_20230220.zip",
-                destfile= fldfiname,mode = "wb")
-  file <- unzip(list.files("./femadata"), exdir = "./femadata")
-}
-
-farea <- "floodarea.rds"
-if (!file.exists(farea)) {
-
-# period means setting working directory to the front 
-  floodarea <- vect('./NFHL_06_20230220/NFHL_06_20230220.gdb',layer = "S_FLD_HAZ_AR")
-#floodbound <- vect('./NFHL_06_20230220/NFHL_06_20230220.gdb',layer = "S_FLD_HAZ_LN")
-# crop to Yolo co.
-
- usa  = geodata::gadm("USA", level=2, path=".")
-  yolo = usa[usa$NAME_2 == "Yolo", ]
- floodarea = crop(floodarea, yolo)
-  saveRDS(floodarea, farea)
-}
-
-floodarea <- readRDS(farea)
-
-# fldfiname <- "femadata/NFHL_06_20230220.zip"
-# if (!file.exists(fldfiname)){
-# dir.create("femadata")
-#  download.file("https://hazards.fema.gov/nfhlv2/output/State/NFHL_06_20230220.zip",
-#                destfile= fldfiname,mode = "wb")
-#  file <- unzip(list.files("./femadata"), exdir = "./femadata")}
-
-# period means setting working directory to the front 
-```
-
-downloading and reading land use data as a SpatVector
-```{r}
-url2<- "https://data.cnra.ca.gov/dataset/6c3d65e3-35bb-49e1-a51e-49d5a2cf09a9/resource/1da7b37a-dd97-4b69-a86a-fe824a252eaf/download/i15_crop_mapping_2019.zip"
-landname <- "./landdata/i15_Crop_Mapping_2019.zip"
-if (!file.exists(landname)){
-dir.create("landdata")
- download.file(url2,
-               destfile= landname,mode = "wb")
+ flcounty <- function(countyname) {
+  #if nfhl does not exist in directory, download from fema
+  fldfiname <- "femadata/NFHL_06_20230220.zip"
+  if (!file.exists(fldfiname)){
+    dir.create("femadata")
+    download.file("https://hazards.fema.gov/nfhlv2/output/State/NFHL_06_20230220.zip",
+                  destfile= fldfiname,mode = "wb")
+    file <- unzip(list.files("./femadata"), exdir = "./femadata")
+  }
+  # take input county name as lower for string comparison
+  clname <- tolower(countyname)
+  # create name of rds to be created
+  fldrds <- paste0(clname,"flood.rds")
+  # if rds for nfhl county does not already exist in directory, create and save
+  #checks is county is in california before cropping, also checks for duplicates
+  if (!file.exists(fldrds)) {
+    usa  = geodata::gadm("USA", level=2, path=".")
+    usa = usa[usa$NAME_1=="California"]
+    county_idx <- grep(paste0(clname, collapse="|"), tolower(usa$NAME_2))
+    # stops is county is not in california
+    if (length(county_idx) == 0) {
+      stop(paste(countyname, "county not found in California"))
+    } else if (length(county_idx) > 1) {
+      warning(paste("Multiple matches found for county", countyname))
+    }
+    # subsets to county
+    county <- usa[county_idx, ]  
+    # creating spat vector from nfhl layer
+  floodarea <- terra::vect('./femadata/NFHL_06_20230220/NFHL_06_20230220.gdb',
+                           layer = "S_FLD_HAZ_AR")
+ 
+  #cropping to county and saving to rds
+  floodcounty = terra::crop(floodarea, county)
+  saveRDS(floodcounty, fldrds)
+  print(paste0(fldrds, " saved to directory"))
+  }else{print(paste0(fldrds, " already exists in directory"))}
+  
+  # if land use data does not exist in directory, download from CNRA
+  landname <- "./landdata/i15_Crop_Mapping_2019.zip"
+  if (!file.exists(landname)){
+    dir.create("landdata")
+    url2<- "https://data.cnra.ca.gov/dataset/6c3d65e3-35bb-49e1-a51e-49d5a2cf09a9/resource/1da7b37a-dd97-4b69-a86a-fe824a252eaf/download/i15_crop_mapping_2019.zip"
+    download.file(url2,
+                  destfile= landname,mode = "wb")
     unzip("./landdata/i15_Crop_Mapping_2019.zip")
-#landuse <- vect(usefiles[7])
-} #else {
-
-fland <- "landuse.rds"
-if (!file.exists(fland)) {
+    #landuse <- vect(usefiles[7])
+  } 
+  # create name of rds to be created
+  lu_rds <- paste0(clname,"landu.rds")
+  #if the rds for landuse does not exist for county, crops to county and saves
+  if (!file.exists(lu_rds)) {
+    usa  = geodata::gadm("USA", level=2, path=".")
+    usa = usa[usa$NAME_1=="California"]
+    county_idx <- grep(paste0(clname, collapse="|"), tolower(usa$NAME_2))
+    # stops is county is not in california
+    if (length(county_idx) == 0) {
+      stop(paste(countyname, "county not found in California"))
+    } else if (length(county_idx) > 1) {
+      warning(paste("Multiple matches found for county", countyname))
+    }
+    # subsets to county
+    county <- usa[county_idx, ]  
     usefiles <-unzip("./landdata/i15_Crop_Mapping_2019.zip", list=TRUE)
-    landuse <- vect(usefiles$Name[8])
-    landuse = crop(landuse, yolo)
-    saveRDS(landuse, fland)
-}
-landuse <- readRDS(fland)
+    landuse <- terra::vect(usefiles$Name[8])
+    lu_county = terra::crop(landuse, county)
+    saveRDS(lu_county, lu_rds)
+    print(paste0(lu_rds, " saved to directory"))
+  }else{print(paste0(lu_rds, " already exists in directory"))}
+ 
+ }
+
+```
+Using the created function, we subset data for yolo county and sacramento county.  
+Note that the function saves each landuse file in the format countynamelu.rds and each flood layer file as countynameflood.rds. The countyname here is the name of the specified county in all lowercase letters. Again, the function itself is case insensitive.  
+```{r}
+flcounty('yolo')
+floodyolo <- readRDS("./yoloflood.rds")
+yololu <- readRDS("./yololandu.rds")
+flcounty('sacramento')
+floodsac <- readRDS("./sacramentoflood.rds")
+saclu <- readRDS("./sacramentolandu.rds")
+```
+Then, we combine the data using rbind() and plot the flood areas in each county.
+```{r}
+landuse <- rbind(yololu,saclu)
+floodarea<- rbind(floodyolo,floodsac)
+plot(landuse, main = "Flood Hazard areas in Sacramento and Yolo County")
+lines(floodarea, col = "blue")
+
+# add the legend to the plot
+legend("bottomleft", col = c("blue"), legend = "flood zones", pch = 16)
 
 ```
 organizing data into urban and agricultural land
@@ -76,7 +116,37 @@ organizing data into urban and agricultural land
 #landuse$agriculture <- landuse$SYMB_CLASS != "U"
 
 # assign agriculture area if the value is not equal to U 
-agind <- landuse$SYMB_CLASS != "U"
+agind <- landuse$SYMB_CLASS != "U" 
+#urbanind<- grep(uses,cats[11],value = 0)
+# replacing the values in the column
+landuse$landuse <- "urban"
+landuse$landuse[agind]<- "agriculture"
+
+highcats <- c("A","AE","AH","AO","VE","V")
+modcats <- c("X","A99")
+floodarea <- floodarea[floodarea$FLD_ZONE != "AREA NOT INCLUDED", ]
+floodarea$zones <- "wrong"
+floodarea$zones[floodarea$FLD_ZONE %in% highcats] <- "high risk"
+floodarea$zones[floodarea$FLD_ZONE %in% modcats] <- "mod risk"
+floodarea$zones[floodarea$FLD_ZONE == "D"] <- "low risk"
+#table(floodarea$zones, floodarea$FLD_ZONE)
+
+
+luflood <- intersect(landuse[, "landuse"], floodarea[, "zones"])
+table(luflood$zones, luflood$landuse)   
+d = data.frame(luflood)
+plot(luflood[luflood$landuse=="agriculture"])
+plot(luflood[luflood$landuse=="urban"])
+#ggplot(d)
+```
+
+
+```{r}
+
+#landuse$agriculture <- landuse$SYMB_CLASS != "U"
+
+# assign agriculture area if the value is not equal to U 
+agind <- landuse$SYMB_CLASS != "U" 
 #urbanind<- grep(uses,cats[11],value = 0)
 # replacing the values in the column
 landuse$landuse <- "urban"
@@ -95,39 +165,39 @@ floodarea$zones[floodarea$FLD_ZONE == "D"] <- "low risk"
 luflood <- intersect(landuse[, "landuse"], floodarea[, "zones"])
 table(luflood$zones, luflood$landuse)
 d = data.frame(luflood)
-library(ggplot2)
-#ggplot(d)
+plot(luflood[luflood$landuse=="agriculture"])
+plot(luflood[luflood$landuse=="agriculture"])
 ```
 
 
 ```{r}
-urbflood[, c("SYMB_CLASS")]
+#urbflood[, c("SYMB_CLASS")]
+
 ```
 
 
 plotting
 ```{r}
-plot(landuse, main = "CA Agricultural Land in Flood Zones")#, add = TRUE)
+plot(landuse, main = "Yolo County Agricultural Land in Flood Zones")#, add = TRUE)
 lines(agflood,col = "blue")
 legend("topright",col =c("blue","black"),legend = c("flood zones","agricultural land"))
 ```
 ```{r}
 library(ggplot2)
 
-agind <-  unlist(sapply(agcats,grep,uses,value = 0))
-landuse$SYMB_CLASS[agind]<- "agricultural land"
+# agind <-  unlist(sapply(agcats,grep,uses,value = 0))
+# landuse$SYMB_CLASS[agind]<- "agricultural land"
+# 
+# zonetypes <- unique(floodarea$FLD_ZONE)
+# highcats <- c("A","AE","AH","AO","VE","V")
+# modcats <- c("X","A99")
+# floodarea$zones <- "wrong"
+# floodarea$zones[floodarea$FLD_ZONE %in% highcats] <- "high risk"
+# floodarea$zones[floodarea$FLD_ZONE %in% modcats] <- "mod risk"
+# floodarea$zones[floodarea$FLD_ZONE == "D"] <- "low risk"
+# table(floodarea$zones)
+# fz = aggregate(floodarea, "FLD_ZONE")
 
-zonetypes <- unique(floodarea$FLD_ZONE)
-highcats <- c("A","AE","AH","AO","VE","V")
-modcats <- c("X","A99")
-floodarea$zones <- "wrong"
-floodarea$zones[floodarea$FLD_ZONE %in% highcats] <- "high risk"
-floodarea$zones[floodarea$FLD_ZONE %in% modcats] <- "mod risk"
-floodarea$zones[floodarea$FLD_ZONE == "D"] <- "low risk"
-table(floodarea$zones)
-fz = aggregate(floodarea, "FLD_ZONE")
-
-library(ggplot2)
 
 
 
@@ -175,4 +245,5 @@ ggplot(urbflood,aes(x=urbflood$SYMB_CLASS,fill=urbflood$FLD_ZONE))+
   labs(x="Continent",y="Distribution of types of plastic in the average pick-up event")+
   theme_bw()
 ```
+
 
