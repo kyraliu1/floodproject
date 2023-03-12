@@ -8,6 +8,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # knitr::opts_knit$set(root.dir= '/Users/sunga/Documents/GitHub/floodproject') # sung wd
 # knitr::opts_knit$set(root.dir = "/Volumes/KYRADRIVE/floodproject") # kyra mac wd
+# knitr::opts_knit$set(root.dir = "F:/floodproject") # kyra windows wd
+
 library(terra)
 library(ggplot2)
 library(geodata)
@@ -42,7 +44,7 @@ county_idx <- grep(paste0(clname, collapse="|"), tolower(usa$NAME_2))
 if (length(county_idx) == 0) {
 stop(paste(countyname, "county not found in California"))
 } else if (length(county_idx) > 1) {
-arning(paste("Multiple matches found for county", countyname))
+warning(paste("Multiple matches found for county", countyname))
 }
 # subsets to county
 county <- usa[county_idx, ]
@@ -110,7 +112,7 @@ landuse <- rbind(yololu,saclu)
 floodarea<- rbind(floodyolo,floodsac)
 plot(landuse, main = "Flood Hazard areas in Sacramento and Yolo County",
      xlim = c(-122.3,-121),
-    axes = FALSE,box = TRUE)
+    axes = FALSE)#box = TRUE)
 lines(floodarea, col = "dodgerblue")
 
 # add the legend to the plot
@@ -214,9 +216,9 @@ for (i in 1:length(zonecats)){
 writing data to shapefile for further visualization in arcgis pro
 ```{r}
 
-# newfi <- "./processeddata/luflood.shp"
-# if (!file.exists(newfi)){
-#   dir.create("./processeddata")
-# writeVector(luflood,newfi)}
+newfi <- "./processeddata/luflood.shp"
+if (!file.exists(newfi)){
+  dir.create("./processeddata")
+writeVector(luflood,newfi)}
 ```
 
