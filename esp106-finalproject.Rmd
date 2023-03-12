@@ -180,5 +180,43 @@ ggplot(data = intdf,
        x = "land use type", y = "frequency of flood risk category", fill = "flood risk type")+ 
   theme(axis.text.y = element_blank())
 ```
+Calculating the proportion of flood-prone land  
+```{r}
 
+agarea <- sum(expanse(landuse[landuse$landuse=="agriculture"],unit = "km"))
+frag <- sum(expanse(luflood[luflood$landuse=="agriculture"],unit = "km"))/agarea
+
+urbarea<- sum(expanse(landuse[landuse$landuse=="urban"],unit = "km"))
+frurb <- sum(expanse(luflood[luflood$landuse=="urban"],unit = "km"))/urbarea
+```
+Calculating proportion of each type of flood risk
+```{r}
+zonecats <- unique(luflood$zones)
+agzonal = data.frame(zonecats,rep(1,length(zonecats)))
+names(agzonal) <- c("risk","area")
+for (i in 1:length(zonecats)){
+  agzonal$area[i] = sum(expanse(luflood[luflood$landuse=="agriculture" & luflood$zones == zonecats[i]],
+                     unit = "km"))
+}
+```
+urban
+
+```{r}
+urbzonal = data.frame(zonecats,rep(1,length(zonecats)))
+names(urbzonal) <- c("risk","area")
+for (i in 1:length(zonecats)){
+  agzonal$area[i] = sum(expanse(luflood[luflood$landuse=="urban" & luflood$zones == zonecats[i]],
+                     unit = "km"))
+}
+
+
+```
+writing data to shapefile for further visualization in arcgis pro
+```{r}
+
+# newfi <- "./processeddata/luflood.shp"
+# if (!file.exists(newfi)){
+#   dir.create("./processeddata")
+# writeVector(luflood,newfi)}
+```
 
