@@ -1,22 +1,17 @@
 ---
-title: "floodproject"
-output: html_document
-date: '2023-03-10'
----
----
 title: "ESP 106 Final Project"
 output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
-
 knitr::opts_chunk$set(echo = TRUE)
 
-knitr::opts_knit$set(root.dir= "C:/Users/Ucchong/Desktop/New folder/floodproject") # sung wd
-#knitr::opts_knit$set(root.dir = "/Volumes/KYRADRIVE/floodproject") # kyra mac wd
+# knitr::opts_knit$set(root.dir= '/Users/sunga/Documents/GitHub/floodproject') # sung wd
+# knitr::opts_knit$set(root.dir = "/Volumes/KYRADRIVE/floodproject") # kyra mac wd
 library(terra)
 library(ggplot2)
 library(geodata)
+library(wesanderson)
 
 ```
 Creating a function that allows you to put in any county in California and get land use data and national flood hazard layer for that county and save as rds. This allows us to process data for multiple counties much more efficiently. Also, it allows us to save a much smaller (cropped) data set for an individual county rather than having to access both statewide data sets all at once.  
@@ -77,7 +72,7 @@ if (!file.exists(lu_rds)) {
 usa= geodata::gadm("USA", level=2, path=".")
 usa = usa[usa$NAME_1=="California"]
 county_idx <- grep(paste0(clname, collapse="|"), tolower(usa$NAME_2))
-# stops is county is not in california
+# stops if county is not in california
 if (length(county_idx) == 0) {
 stop(paste(countyname, "county not found in California"))
 } else if (length(county_idx) > 1) {
@@ -93,7 +88,7 @@ print(paste0(lu_rds, " saved to directory"))
 }else{print(paste0(lu_rds, " already exists in directory"))}
  
  }
-flcounty('yolo')
+
 
 ```
 Using the created function, we subset data for yolo county and sacramento county.  
@@ -113,13 +108,16 @@ Then, we combine the data using rbind() and plot the flood areas in each county.
 ```{r}
 landuse <- rbind(yololu,saclu) 
 floodarea<- rbind(floodyolo,floodsac)
-plot(landuse, main = "Flood Hazard areas in Sacramento and Yolo County")
-lines(floodarea, col = "blue")
+plot(landuse, main = "Flood Hazard areas in Sacramento and Yolo County",
+     xlim = c(-122.3,-121),
+    axes = FALSE,box = TRUE)
+lines(floodarea, col = "dodgerblue")
 
 # add the legend to the plot
-legend("bottomleft", col = c("blue"), legend = "flood zones", pch = 16)
+legend("bottomleft", col = c("dodgerblue"), legend = "flood zones", pch = 16)
 
 ```
+
 organizing data into urban and agricultural land
 ```{r}
 
@@ -140,26 +138,47 @@ lowcats <- c("D","A99")
 floodarea <- floodarea[floodarea$FLD_ZONE != "AREA NOT INCLUDED", ]
 floodarea$zones <- "wrong"
 floodarea$zones[floodarea$FLD_ZONE %in% highcats] <- "high risk"
-floodarea$zones[floodarea$FLD_ZONE %in% modcats] <- "mod risk"
+floodarea$zones[floodarea$FLD_ZONE %in% modcats] <- "moderate risk"
 floodarea$zones[floodarea$FLD_ZONE %in% wavecats] <- "high risk-wave action"
 floodarea$zones[floodarea$FLD_ZONE %in% lowcats] <- "low risk"
 #table(floodarea$zones, floodarea$FLD_ZONE)
 
 
 luflood <- intersect(landuse, floodarea)
-table(luflood$zones, luflood$landuse)   
-d = data.frame(luflood)
-# plot(luflood[luflood$landuse=="agriculture"])
-# plot(luflood[luflood$landuse=="urban"])
-#ggplot(d)
- tyolo = table(luflood$zones, luflood$landuse)
 
-barplot(tyolo)
+urbanf <- luflood[luflood$landuse == "urban"]
+plot(landuse[landuse$landuse == "urban"],
+     main = "Flood Zones in Urban Land in Yolo and Sacramento County",
+     axes = FALSE, box = TRUE)
+lines(urbanf, col = "dodgerblue")
 
-heh <-data.frame(luflood$zones, luflood$landuse)
+agf <- luflood[luflood$landuse == "agriculture"]
+plot(landuse[landuse$landuse == "agriculture"],
+     main = "Flood Zones in Agricultural Land in Yolo and Sacramento County",
+     axes = FALSE)#, box = TRUE)
 
-names(heh)<- c("risk","lu")
-ggplot(data = heh,aes(x = lu,y=risk,fill=risk))+
-  geom_bar(position = "stack",stat = "identity")
+lines(agf, col = "dodgerblue")
+
+intdf <-data.frame(luflood$COUNTY,luflood$zones, luflood$landuse)
+
+names(intdf)<- c("county","flood.risk","land.use")
+# ggplot(data = heh,aes(x = county,y=lu,fill=risk))+
+#   geom_bar(position = "stack",stat = "identity")
+pal <- wes_palette("Moonrise3",3,type = "discrete")
+x <- table(intdf$flood.risk)
+par(mar = c(4,4,5,4))
+barplot(x,main = "Overall Count of Each Flood Risk\n Type in Yolo and Sacramento County",
+        col=pal[2] )
+ggplot(data = intdf,                       
+       aes(x = land.use,
+           y = flood.risk,
+           fill = flood.risk)) + 
+  geom_bar(stat = "identity",
+           position = "stack") +
+  facet_grid(~ county)+ scale_fill_manual(values = pal)+
+  labs(title = "Distribution of Flood Risk in Yolo and Sacramento County\nAcross Urban and Agricultural Land",
+       x = "land use type", y = "frequency of flood risk category", fill = "flood risk type")+ 
+  theme(axis.text.y = element_blank())
 ```
+
 
