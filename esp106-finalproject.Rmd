@@ -191,6 +191,7 @@ frag <- sum(expanse(luflood[luflood$landuse=="agriculture"],unit = "km"))/agarea
 urbarea<- sum(expanse(landuse[landuse$landuse=="urban"],unit = "km"))
 frurb <- sum(expanse(luflood[luflood$landuse=="urban"],unit = "km"))/urbarea
 ```
+
 Calculating proportion of each type of flood risk
 ```{r}
 zonecats <- unique(luflood$zones)
@@ -200,19 +201,27 @@ for (i in 1:length(zonecats)){
   agzonal$area[i] = sum(expanse(luflood[luflood$landuse=="agriculture" & luflood$zones == zonecats[i]],
                      unit = "km"))
 }
+agzonal$proporion = agzonal$area/agarea
+
 ```
-urban
+Overall, about 99.5% of the agricultural land in Yolo and Sacramento County is in a flood zone.  
+Breaking that down, about 58.6% of agricultural land in the two counties is in high-risk flood zones, 38.3% is in moderate-risk flood zones, and about 2.6% is in a low-risk flood zone.  
+  
 
 ```{r}
 urbzonal = data.frame(zonecats,rep(1,length(zonecats)))
 names(urbzonal) <- c("risk","area")
 for (i in 1:length(zonecats)){
-  agzonal$area[i] = sum(expanse(luflood[luflood$landuse=="urban" & luflood$zones == zonecats[i]],
+  urbzonal$area[i] = sum(expanse(luflood[luflood$landuse=="urban" & luflood$zones == zonecats[i]],
                      unit = "km"))
 }
-
+urbzonal$proportion = urbzonal$area/urbarea
 
 ```
+About 96.3% of the urban land in Yolo and Sacramento County is in a flood zone.  
+Breaking that down, about 6.8% of urban land in the two counties is in high-risk flood zones, 84.7% is in moderate-risk flood zones, and about 4.9% is in a low-risk flood zone.  
+  
+
 writing data to shapefile for further visualization in arcgis pro
 ```{r}
 # luflood <- aggregate(luflood,by = "zones",dissolve = TRUE)
