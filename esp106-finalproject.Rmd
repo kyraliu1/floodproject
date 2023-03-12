@@ -215,10 +215,12 @@ for (i in 1:length(zonecats)){
 ```
 writing data to shapefile for further visualization in arcgis pro
 ```{r}
-
+# luflood <- aggregate(luflood,by = "zones",dissolve = TRUE)
+# landuse <- aggregate(landuse, by = "landuse",dissolve = TRUE)
 newfi <- "./processeddata/luflood.shp"
 if (!file.exists(newfi)){
   dir.create("./processeddata")
-writeVector(luflood,newfi)}
+writeVector(luflood,newfi)
+writeVector(landuse,"./processeddata/croppedlanduse.shp")}
 ```
 
