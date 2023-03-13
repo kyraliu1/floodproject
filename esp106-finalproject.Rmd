@@ -2,14 +2,16 @@
 title: "ESP 106 Final Project"
 output: pdf_document
 ---
+Kyra Liu, Sung-A Lee  
+California is known for its warm and dry climates. However, the entire state of California is flood prone. This project seeks to analyze the areas of high flood risk in two California countries, Sacramento and Yolo, and assess the current uses of the land in particularly vulnerable areas. Using ArcGIS Pro and R we will perform geospatial analysis and create visualizations about California flood vulnerability and evaluate the current land uses of the areas.  
+
+Within R we utilize the terra package for spatial data analysis and transformations.  
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
 # knitr::opts_knit$set(root.dir= '/Users/sunga/Documents/GitHub/floodproject') # sung wd
 # knitr::opts_knit$set(root.dir = "/Volumes/KYRADRIVE/floodproject") # kyra mac wd
-# knitr::opts_knit$set(root.dir = "F:/floodproject") # kyra windows wd
-
 library(terra)
 library(ggplot2)
 library(geodata)
@@ -17,84 +19,82 @@ library(wesanderson)
 
 ```
 Creating a function that allows you to put in any county in California and get land use data and national flood hazard layer for that county and save as rds. This allows us to process data for multiple counties much more efficiently. Also, it allows us to save a much smaller (cropped) data set for an individual county rather than having to access both statewide data sets all at once.  
+  
 The function takes in a string of the county's name. If the county exists in California (case insensitive), then it crops both data sets to the specified county and saves each subset data as a RDS. If the county, as inputted, is not in California, the function breaks and returns an error which states that the county does not exist in California.  
+  
 The flood data we have is from FEMA's national flood hazard layer. The land use data is from the California natural resources agency's crop mapping data.  
 If the desired RDS already exists, the function informs the user.  
 ```{r}
+
 flcounty <- function(countyname) {
-#if nfhl does not exist in directory, download from fema
-fldfiname <- "femadata/NFHL_06_20230220.zip"
-if (!file.exists(fldfiname)){
-dir.create("femadata")
-download.file("https://hazards.fema.gov/nfhlv2/output/State/NFHL_06_20230220.zip",
-destfile= fldfiname,mode = "wb")
-}
-#file <- unzip(fldfiname, exdir = "./femadata")
-# take input county name as lower for string comparison
-clname <- tolower(countyname)
-# create name of rds to be created
-fldrds <- paste0(clname,"flood.rds")
-# if rds for nfhl county does not already exist in directory, create and save
-#checks is county is in california before cropping, also checks for duplicates
-if (!file.exists(fldrds)) {
-usa= geodata::gadm("USA", level=2, path=".")
-usa = usa[usa$NAME_1=="California"]
-county_idx <- grep(paste0(clname, collapse="|"), tolower(usa$NAME_2))
-# stops is county is not in california
-if (length(county_idx) == 0) {
-stop(paste(countyname, "county not found in California"))
-} else if (length(county_idx) > 1) {
-warning(paste("Multiple matches found for county", countyname))
-}
-# subsets to county
-county <- usa[county_idx, ]
-# creating spat vector from nfhl layer
- floodfiles <-unzip("./femadata/NFHL_06_20230220.zip",exdir="./femadata")
-floodarea <- terra::vect("./femadata/NFHL_06_20230220.gdb",layer = "S_FLD_HAZ_AR")
- 
-#cropping to county and saving to rds
-floodcounty = terra::crop(floodarea, county)
-saveRDS(floodcounty, fldrds)
-print(paste0(fldrds, " saved to directory"))
-}else{print(paste0(fldrds, " already exists in directory"))}
+  #if nfhl does not exist in directory, download from fema
+  clname <- tolower(countyname)
+    usa= geodata::gadm("USA", level=2, path=".")
 
-# if land use data does not exist in directory, download from CNRA
-landname <- "./landdata/i15_Crop_Mapping_2019.zip"
-if (!file.exists(landname)){
-dir.create("landdata")
-url2<- "https://data.cnra.ca.gov/dataset/6c3d65e3-35bb-49e1-a51e-49d5a2cf09a9/resource/1da7b37a-dd97-4b69-a86a-fe824a252eaf/download/i15_crop_mapping_2019.zip"
-download.file(url2,destfile= landname,mode = "wb")
-#unzip("./landdata/i15_Crop_Mapping_2019.zip")
-#landuse <- vect(usefiles[7])
-} 
-# create name of rds to be created
-lu_rds <- paste0(clname,"landu.rds")
-#if the rds for landuse does not exist for county, crops to county and saves
-if (!file.exists(lu_rds)) {
-usa= geodata::gadm("USA", level=2, path=".")
-usa = usa[usa$NAME_1=="California"]
-county_idx <- grep(paste0(clname, collapse="|"), tolower(usa$NAME_2))
-# stops if county is not in california
-if (length(county_idx) == 0) {
-stop(paste(countyname, "county not found in California"))
-} else if (length(county_idx) > 1) {
-warning(paste("Multiple matches found for county", countyname))
-}
-# subsets to county
-county <- usa[county_idx, ]
-usefiles <-unzip("./landdata/i15_Crop_Mapping_2019.zip", exdir= "./landdata")
-landuse <- terra::vect(paste0("./landdata/i15_Crop_Mapping_2019/i15_Crop_Mapping_2019.shp"))
-lu_county = terra::crop(landuse, county)
-saveRDS(lu_county, lu_rds)
-print(paste0(lu_rds, " saved to directory"))
-}else{print(paste0(lu_rds, " already exists in directory"))}
+  usa = usa[usa$NAME_1=="California"]
+  county_idx <- grep(paste0(clname, collapse="|"), tolower(usa$NAME_2))
+  county <- usa[county_idx, ]
+  # stops if county is not in california
+  if (length(county_idx) == 0) {
+    stop(paste(countyname, "county not found in California"))
+  } else if (length(county_idx) > 1) {
+    warning(paste("Multiple matches found for county", countyname))
+  }
+  fldfiname <- "femadata/NFHL_06_20230220.zip"
+  if (!file.exists(fldfiname)){
+    dir.create("femadata")
+    download.file("https://hazards.fema.gov/nfhlv2/output/State/NFHL_06_20230220.zip",
+                  destfile= fldfiname,mode = "wb")
+  }
+  #file <- unzip(fldfiname, exdir = "./femadata")
+  # take input county name as lower for string comparison
  
- }
-
+  # create name of rds to be created
+  fldrds <- paste0(clname,"flood.rds")
+  # if rds for nfhl county does not already exist in directory, create and save
+  #checks is county is in california before cropping, also checks for duplicates
+  if (!file.exists(fldrds)) {
+   
+    # subsets to county
+   
+    # creating spat vector from nfhl layer
+    floodfiles <-unzip("./femadata/NFHL_06_20230220.zip",exdir="./femadata")
+    floodarea <- terra::vect("./femadata/NFHL_06_20230220.gdb",layer = "S_FLD_HAZ_AR")
+    
+    #cropping to county and saving to rds
+    floodcounty = terra::crop(floodarea, county)
+    saveRDS(floodcounty, fldrds)
+    print(paste0(fldrds, " saved to directory"))
+  }else{print(paste0(fldrds, " already exists in directory"))}
+  
+  # if land use data does not exist in directory, download from CNRA
+  landname <- "./landdata/i15_Crop_Mapping_2019.zip"
+  if (!file.exists(landname)){
+    dir.create("landdata")
+    url2<- "https://data.cnra.ca.gov/dataset/6c3d65e3-35bb-49e1-a51e-49d5a2cf09a9/resource/1da7b37a-dd97-4b69-a86a-fe824a252eaf/download/i15_crop_mapping_2019.zip"
+    download.file(url2,destfile= landname,mode = "wb")
+    #unzip("./landdata/i15_Crop_Mapping_2019.zip")
+    #landuse <- vect(usefiles[7])
+  } 
+  # create name of rds to be created
+  lu_rds <- paste0(clname,"landu.rds")
+  #if the rds for landuse does not exist for county, crops to county and saves
+  if (!file.exists(lu_rds)) {
+   
+    usefiles <-unzip("./landdata/i15_Crop_Mapping_2019.zip", exdir= "./landdata")
+    landuse <- terra::vect(paste0("./landdata/i15_Crop_Mapping_2019/i15_Crop_Mapping_2019.shp"))
+    lu_county = terra::crop(landuse, county)
+    saveRDS(lu_county, lu_rds)
+    print(paste0(lu_rds, " saved to directory"))
+  }else{print(paste0(lu_rds, " already exists in directory"))}
+  
+}
 
 ```
-Using the created function, we subset data for yolo county and sacramento county.  
+Within this function, we obtain geodata for the USA and extract only border of the desired county. Then we use this to crop the flood and land-use data to only the input county. It tells the user when each file has been downloaded, or if the file already exists in the directory (in which case a new file is not created).  
+
 Note that the function saves each landuse file in the format countynamelu.rds and each flood layer file as countynameflood.rds. The countyname here is the name of the specified county in all lowercase letters. Again, the function itself is case insensitive.  
+Using the created function, we subset data for yolo county and sacramento county.  
 ```{r}
 flcounty('yolo')
 floodyolo <- readRDS("./yoloflood.rds")
@@ -112,15 +112,20 @@ landuse <- rbind(yololu,saclu)
 floodarea<- rbind(floodyolo,floodsac)
 plot(landuse, main = "Flood Hazard areas in Sacramento and Yolo County",
      xlim = c(-122.3,-121),
-    axes = FALSE)#box = TRUE)
+    axes = FALSE,box = TRUE)
 lines(floodarea, col = "dodgerblue")
 
 # add the legend to the plot
 legend("bottomleft", col = c("dodgerblue"), legend = "flood zones", pch = 16)
 
 ```
+This initial plot gives us a general idea of the distribution of the flood zones within the two counties.  
+organizing data into urban and agricultural land  
 
-organizing data into urban and agricultural land
+Then, we categorized the flood risks and the land use types for our project. In this project, we have 2 land-use classes: urban and agricultural, and 4 flood-risk categories: high, high coastal, moderate, and low.
+
+Once we categorized this data we intersected the flood and land-use data. Using this intersected data, we can create visualizations of the distribution of flood risk across the two counties for the different land-use types. 
+
 ```{r}
 
 #landuse$agriculture <- landuse$SYMB_CLASS != "U"
@@ -184,52 +189,48 @@ ggplot(data = intdf,
 ```
 Calculating the proportion of flood-prone land  
 ```{r}
-
+# getting total agriculture area
 agarea <- sum(expanse(landuse[landuse$landuse=="agriculture"],unit = "km"))
+# calculating proportion of flood-risk in ag
 frag <- sum(expanse(luflood[luflood$landuse=="agriculture"],unit = "km"))/agarea
 
 urbarea<- sum(expanse(landuse[landuse$landuse=="urban"],unit = "km"))
 frurb <- sum(expanse(luflood[luflood$landuse=="urban"],unit = "km"))/urbarea
 ```
-
 Calculating proportion of each type of flood risk
 ```{r}
-zonecats <- unique(luflood$zones)
+#getting zone categories
+zonecats <- unique(luflood$zones) 
+# creating data frame
 agzonal = data.frame(zonecats,rep(1,length(zonecats)))
 names(agzonal) <- c("risk","area")
+
+#calculating for each zone type, inserting in data frame
 for (i in 1:length(zonecats)){
   agzonal$area[i] = sum(expanse(luflood[luflood$landuse=="agriculture" & luflood$zones == zonecats[i]],
                      unit = "km"))
 }
-agzonal$proporion = agzonal$area/agarea
-
 ```
-Overall, about 99.5% of the agricultural land in Yolo and Sacramento County is in a flood zone.  
-Breaking that down, about 58.6% of agricultural land in the two counties is in high-risk flood zones, 38.3% is in moderate-risk flood zones, and about 2.6% is in a low-risk flood zone.  
-  
+urban
 
 ```{r}
+
+#calculating and creating data frame for urban land
 urbzonal = data.frame(zonecats,rep(1,length(zonecats)))
 names(urbzonal) <- c("risk","area")
 for (i in 1:length(zonecats)){
-  urbzonal$area[i] = sum(expanse(luflood[luflood$landuse=="urban" & luflood$zones == zonecats[i]],
+  agzonal$area[i] = sum(expanse(luflood[luflood$landuse=="urban" & luflood$zones == zonecats[i]],
                      unit = "km"))
 }
-urbzonal$proportion = urbzonal$area/urbarea
+
 
 ```
-About 96.3% of the urban land in Yolo and Sacramento County is in a flood zone.  
-Breaking that down, about 6.8% of urban land in the two counties is in high-risk flood zones, 84.7% is in moderate-risk flood zones, and about 4.9% is in a low-risk flood zone.  
-  
-
 writing data to shapefile for further visualization in arcgis pro
 ```{r}
-# luflood <- aggregate(luflood,by = "zones",dissolve = TRUE)
-# landuse <- aggregate(landuse, by = "landuse",dissolve = TRUE)
-newfi <- "./processeddata/luflood.shp"
-if (!file.exists(newfi)){
-  dir.create("./processeddata")
-writeVector(luflood,newfi)
-writeVector(landuse,"./processeddata/croppedlanduse.shp")}
+
+# newfi <- "./processeddata/luflood.shp"
+# if (!file.exists(newfi)){
+#   dir.create("./processeddata")
+# writeVector(luflood,newfi)}
 ```
 
