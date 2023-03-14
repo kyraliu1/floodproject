@@ -26,9 +26,12 @@ The flood data we have is from FEMA's national flood hazard layer. The land use 
 If the desired RDS already exists, the function informs the user.  
 ```{r}
 
+
 flcounty <- function(countyname) {
   #if nfhl does not exist in directory, download from fema
+countydata <- list(flood = NULL, landuse = NULL)
   clname <- tolower(countyname)
+ cfiname <- gsub(" ", "", countyname)
     usa= geodata::gadm("USA", level=2, path=".")
 
   usa = usa[usa$NAME_1=="California"]
@@ -50,7 +53,7 @@ flcounty <- function(countyname) {
   # take input county name as lower for string comparison
  
   # create name of rds to be created
-  fldrds <- paste0(clname,"flood.rds")
+  fldrds <- paste0(cfiname,"flood.rds")
   # if rds for nfhl county does not already exist in directory, create and save
   #checks is county is in california before cropping, also checks for duplicates
   if (!file.exists(fldrds)) {
@@ -66,7 +69,7 @@ flcounty <- function(countyname) {
     saveRDS(floodcounty, fldrds)
     print(paste0(fldrds, " saved to directory"))
   }else{print(paste0(fldrds, " already exists in directory"))}
-  
+countydata$flood <- readRDS(fldrds)
   # if land use data does not exist in directory, download from CNRA
   landname <- "./landdata/i15_Crop_Mapping_2019.zip"
   if (!file.exists(landname)){
@@ -77,7 +80,7 @@ flcounty <- function(countyname) {
     #landuse <- vect(usefiles[7])
   } 
   # create name of rds to be created
-  lu_rds <- paste0(clname,"landu.rds")
+  lu_rds <- paste0(cfiname,"landu.rds")
   #if the rds for landuse does not exist for county, crops to county and saves
   if (!file.exists(lu_rds)) {
    
@@ -87,7 +90,8 @@ flcounty <- function(countyname) {
     saveRDS(lu_county, lu_rds)
     print(paste0(lu_rds, " saved to directory"))
   }else{print(paste0(lu_rds, " already exists in directory"))}
-  
+  countydata$landuse <- readRDS(lu_rds)
+  countydata
 }
 
 ```
@@ -96,14 +100,14 @@ Within this function, we obtain geodata for the USA and extract only border of t
 Note that the function saves each landuse file in the format countynamelu.rds and each flood layer file as countynameflood.rds. The countyname here is the name of the specified county in all lowercase letters. Again, the function itself is case insensitive.  
 Using the created function, we subset data for yolo county and sacramento county.  
 ```{r}
-flcounty('yolo')
-floodyolo <- readRDS("./yoloflood.rds")
-yololu <- readRDS("./yololandu.rds")
+yolodata <- flcounty('yolo')
+floodyolo <- yolodata$flood
+yololu <- yolodata$landuse
 yololu$COUNTY <- "Yolo"
 
-flcounty('sacramento')
-floodsac <- readRDS("./sacramentoflood.rds")
-saclu <- readRDS("./sacramentolandu.rds")
+sacdata <- flcounty('sacramento')
+floodsac <- sacdata$flood
+saclu <- sacdata$landuse
 saclu$COUNTY <- "Sacramento"
 ```
 Then, we combine the data using rbind() and plot the flood areas in each county.
@@ -111,8 +115,8 @@ Then, we combine the data using rbind() and plot the flood areas in each county.
 landuse <- rbind(yololu,saclu) 
 floodarea<- rbind(floodyolo,floodsac)
 plot(landuse, main = "Flood Hazard areas in Sacramento and Yolo County",
-     xlim = c(-122.3,-121),
-    axes = FALSE,box = TRUE)
+     xlim = c(-122.5,-121),
+    axes = FALSE)#,box = TRUE)
 lines(floodarea, col = "dodgerblue")
 
 # add the legend to the plot
@@ -166,23 +170,23 @@ plot(landuse[landuse$landuse == "agriculture"],
 
 lines(agf, col = "dodgerblue")
 
-intdf <-data.frame(luflood$COUNTY,luflood$zones, luflood$landuse)
+intdf <-data.frame(luflood$COUNTY,luflood$zones,expanse(luflood,unit = 'km'), luflood$landuse)
 
-names(intdf)<- c("county","flood.risk","land.use")
-# ggplot(data = heh,aes(x = county,y=lu,fill=risk))+
-#   geom_bar(position = "stack",stat = "identity")
-pal <- wes_palette("Moonrise3",3,type = "discrete")
-x <- table(intdf$flood.risk)
-par(mar = c(4,4,5,4))
-barplot(x,main = "Overall Count of Each Flood Risk\n Type in Yolo and Sacramento County",
-        col=pal[2] )
+names(intdf)<- c("county","flood.risk","area","land.use")
+new_order <- c("high risk", "moderate risk", "low risk")
+
+# modify the factor levels of the fill variable
+intdf$flood.risk <- factor(intdf$flood.risk, levels = new_order)
+
+pal <- wes_palette("Darjeeling1",3,type = "discrete")
+
 ggplot(data = intdf,                       
        aes(x = land.use,
            y = flood.risk,
            fill = flood.risk)) + 
   geom_bar(stat = "identity",
            position = "stack") +
-  facet_grid(~ county)+ scale_fill_manual(values = pal)+
+  facet_grid(~ county)+ scale_fill_manual(values = c(pal[1],pal[3],pal[2]))+
   labs(title = "Distribution of Flood Risk in Yolo and Sacramento County\nAcross Urban and Agricultural Land",
        x = "land use type", y = "frequency of flood risk category", fill = "flood risk type")+ 
   theme(axis.text.y = element_blank())
@@ -219,11 +223,17 @@ urban
 urbzonal = data.frame(zonecats,rep(1,length(zonecats)))
 names(urbzonal) <- c("risk","area")
 for (i in 1:length(zonecats)){
-  agzonal$area[i] = sum(expanse(luflood[luflood$landuse=="urban" & luflood$zones == zonecats[i]],
+urbzonal$area[i] = sum(expanse(luflood[luflood$landuse=="urban" & luflood$zones == zonecats[i]],
                      unit = "km"))
 }
 
-
+totalframe <- data.frame(zonecats,rep(1,length(zonecats)))
+names(totalframe) <-c("risk","area")
+totalframe$area <- urbzonal$area+ agzonal$area
+par(mar = c(5,5,6,3))
+barplot(totalframe$area,names.arg =c("moderate","high","low"),col = pal[2],
+        main = "Land Area Covered by\n Each Flood Risk\n Type in Yolo and Sacramento County",
+        ylab = expression(area~(km^2)))
 ```
 writing data to shapefile for further visualization in arcgis pro
 ```{r}
