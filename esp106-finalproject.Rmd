@@ -167,10 +167,10 @@ lines(luflood, col = "dodgerblue")
 ## Further Analysis
 
 ```{r}
-new_order <- c("high risk", "moderate risk", "low risk")
+level_order <- c("high risk", "moderate risk", "low risk")
 
 # modifying the factor levels of the fill variable
-luflood$zoneord = factor(luflood$zones, levels = new_order)
+luflood$zoneord = factor(luflood$zones, levels = level_order)
 
 
 pal <- wes_palette("Darjeeling1",3,type = "discrete")
@@ -185,7 +185,7 @@ for (i in 1:length(usetypes)){
 plot_tiles(bmap,adjust = TRUE,add = TRUE)
 lines(landuse[landuse$landuse == usetypes[i]])
 lines(landsub, col = copal)
-legend(x="bottomleft",legend = new_order, col = pal, pch = 15,xpd = TRUE,cex = 0.8)}
+legend(x="bottomleft",legend = level_order, col = pal, pch = 15,xpd = TRUE,cex = 0.8)}
 
 
 areadata <-data.frame(luflood$COUNTY,
@@ -194,7 +194,23 @@ areadata <-data.frame(luflood$COUNTY,
 
 names(areadata)<- c("county","flood.risk","area","land.use")
 totarea <- stats::aggregate(area ~ flood.risk, areadata, sum)
+
+level_order <- c("low risk", "moderate risk", "high risk")
+
+# convert the flood_risk column to a factor with the desired level order
+totarea$flood.risk <- factor(totarea$flood.risk, levels = level_order)
+
+barplot(totarea$area, names.arg = totarea$flood.risk, col = pal)
 # ggplot(areadata, aes(x = flood.risk,y = area))+geom_col(position = 'dodge')
+ggplot(data = areadata,
+       aes(x = land.use,
+           y = area,
+           fill = flood.risk)) +
+  geom_col(position = "stack") +
+  facet_grid(~ county)+ scale_fill_manual(values = pal)+
+  labs(title = "Distribution of Flood Risk in Yolo and Sacramento County\nAcross Urban and Agricultural Land",
+       x = "land use type", y = "area of flood risk category", fill = "flood risk type")+
+  theme(axis.text.y = element_blank())
 ```
 
 Calculating the proportion of flood-prone land
@@ -244,10 +260,10 @@ urbzonal$area[i] = sum(expanse(luflood[luflood$landuse=="Urban" & luflood$zones 
 totalframe <- data.frame(zonecats,rep(1,length(zonecats)))
 names(totalframe) <-c("risk","area")
 totalframe$area <- urbzonal$area+ agzonal$area
-# new_order <- c("high risk", "moderate risk", "low risk")
-# totalframe$risk <- factor(totalframe$risk, levels = new_order)
+# level_order <- c("high risk", "moderate risk", "low risk")
+# totalframe$risk <- factor(totalframe$risk, levels = level_order)
 par(mar = c(5,5,6,3))
-barplot(totalframe$area,names.arg =new_order,col = pal[3],
+barplot(totalframe$area,names.arg =level_order,col = pal[3],
         main = "Land Area Covered by\n Each Flood Risk\n Type in Yolo and Sacramento County",
         ylab = expression(area~(km^2)))
 ```
@@ -256,23 +272,13 @@ Grouped stacked bar plots to show the distribution of the three flood risk categ
 
 ```{r}
 # order that legend should be in
-# new_order <- c("high risk", "moderate risk", "low risk")
+ level_order <- c("high risk", "moderate risk", "low risk")
 # 
 # # modify the factor levels of the fill variable
-# areadata$flood.risk <- factor(areadata$flood.risk, levels = new_order)
+ areadata$flood.risk <- factor(areadata$flood.risk, levels = level_order)
 # creating color palette
 
-#plotting
-ggplot(data = areadata,                       
-       aes(x = land.use,
-           y = flood.risk,
-           fill = flood.risk)) + 
-  geom_bar(stat = "identity",
-           position = "stack") +
-  facet_grid(~ county)+ scale_fill_manual(values = pal)+
-  labs(title = "Distribution of Flood Risk in Yolo and Sacramento County\nAcross Urban and Agricultural Land",
-       x = "land use type", y = "frequency of flood risk category", fill = "flood risk type")+ 
-  theme(axis.text.y = element_blank())
+
 ```
 
 Then we use the following code to write data to shapefile for further visualization in ArcGIS pro
