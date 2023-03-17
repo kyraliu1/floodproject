@@ -123,9 +123,15 @@ saclu$COUNTY <- "Sacramento" # county as sacramento
 # joining data for the two counties
 landuse <- rbind(yololu,saclu) # land use for both counties
 floodarea<- rbind(floodyolo,floodsac) # flood risk for both counties
+initclasses <- unique(landuse$SYMB_CLASS)
+knitr::kable(table(floodarea$FLD_ZONE),col.names = c("risk type","count"),
+             caption= "Table 1. Initial Counts for Flood Zone Designations in Data")
+initzones <- unique(floodarea$FLD_ZONE)
+knitr::kable(table(landuse$SYMB_CLASS),col.names = c('crop mapping category','count'))
+```
 
+```{r}
 # categorizing data
-
 # assign agriculture area if the value is not equal to U 
 agind <- landuse$SYMB_CLASS != "U" 
 #urbanind<- grep(uses,cats[11],value = 0)
@@ -137,7 +143,7 @@ landuse$landuse[agind]<- "Agricultural"
 highcats <- c("A","AE","AH","AO","VE","V") # high risk flood zones defined by fema
 modcats <- c("X") # moderate flood zones defined by fema
 lowcats <- c("D","A99") # low risk flood zones defined by fema
-floodarea <- floodarea[floodarea$FLD_ZONE != "AREA NOT INCLUDED", ]
+floodarea <- floodarea[floodarea$FLD_ZONE != "AREA NOT INCLUDED" & floodarea$FLD_ZONE!= "OPEN WATER", ]
 floodarea$zones <- "wrong"
 #setting zones
 floodarea$zones[floodarea$FLD_ZONE %in% highcats] <- "high risk"
@@ -156,7 +162,7 @@ This initial plot gives us a general idea of the distribution of the flood zones
 bmap <- get_tiles(luflood, crop = TRUE,provider = "CartoDB.Positron")
 #plotting overall land use/ flood zones
 par(mar = c(2,2,6,2))
-plot(landuse,main = "Flood Hazard areas in Sacramento and Yolo County",
+plot(landuse,main = "Flood Hazard Areas in Sacramento and Yolo County",
      axes = FALSE)
 plot_tiles(bmap,adjust = TRUE,add = TRUE)
 lines(landuse)
@@ -165,6 +171,8 @@ lines(luflood, col = "dodgerblue")
 ```
 
 ## Further Analysis
+
+In order to get a more detailed look, we created one plot with agricultural land, and one plot with urban land. To do this, we subset using logical operators. We then color-coded the different flood risks to get a better understanding of where each type of flood risk was in each land use class. To make this process more efficient, we used a for-loop to create the two plots. Within the loops, we first subset the intersected land use and flood zone data to the desired land-use class. Then we assigned each polygon a color based on its flood-risk group. We then plotted the result with a base map from the maptiles package.
 
 ```{r}
 level_order <- c("high risk", "moderate risk", "low risk")
@@ -185,35 +193,46 @@ for (i in 1:length(usetypes)){
 plot_tiles(bmap,adjust = TRUE,add = TRUE)
 lines(landuse[landuse$landuse == usetypes[i]])
 lines(landsub, col = copal)
-legend(x="bottomleft",legend = level_order, col = pal, pch = 15,xpd = TRUE,cex = 0.8)}
+legend(x="bottomleft",legend = c('high risk',"moderate risk","low risk"), col = pal, pch = 15,xpd = TRUE,cex = 0.8)}
+```
 
+After mapping the different flood zones, it is helpful to plot it in a different form to get a better understanding of their distribution. First, we created a bar plot showing the overall distribution of the types of flood zones. First we created a dataframe of the county, flood zones (including their type), flood zone area, and the land use type. Then, using the aggregate function in the stats package, we were able to sum the areas of each type of flood zone. We then created a bar plot with base graphics to show this data.
+
+```{r}
 
 areadata <-data.frame(luflood$COUNTY,
                    luflood$zones,expanse(luflood,unit = 'km'),
-                   luflood$landuse)
+                   luflood$landuse,luflood$zoneord)
 
-names(areadata)<- c("county","flood.risk","area","land.use")
+names(areadata)<- c("county","flood.risk","area","land.use","order")
 totarea <- stats::aggregate(area ~ flood.risk, areadata, sum)
 
 level_order <- c("low risk", "moderate risk", "high risk")
 
 # convert the flood_risk column to a factor with the desired level order
 totarea$flood.risk <- factor(totarea$flood.risk, levels = level_order)
+par(mar = c(4,5,6,4))
+barplot(totarea$area, names.arg = totarea$flood.risk, col = c(pal[1],pal[3],pal[2]),
+        main = "Land Area Covered by\n Each Flood Risk\n Type in Yolo and Sacramento County",
+        ylab = expression(area~(km^2)))
+```
 
-barplot(totarea$area, names.arg = totarea$flood.risk, col = pal)
+While this plot gives us a general idea of what types of flood risks are more abundant in the counties, it is still good to get more insight on the flood risks in each land use type across the two counties. To do this, we created a grouped, stacked bar plot using the ggplot2 package. To do this, we used the dataframe created in the previous section with information about the county, flood zones types, flood zone area, and the land use type.
+
+```{r}
 # ggplot(areadata, aes(x = flood.risk,y = area))+geom_col(position = 'dodge')
 ggplot(data = areadata,
        aes(x = land.use,
            y = area,
-           fill = flood.risk)) +
+           fill = order)) +
   geom_col(position = "stack") +
   facet_grid(~ county)+ scale_fill_manual(values = pal)+
   labs(title = "Distribution of Flood Risk in Yolo and Sacramento County\nAcross Urban and Agricultural Land",
-       x = "land use type", y = "area of flood risk category", fill = "flood risk type")+
+       x = "land use type", y = "area in sq. km", fill = "flood risk type")+
   theme(axis.text.y = element_blank())
 ```
 
-Calculating the proportion of flood-prone land
+Using the created dataframe we can also calculate the proportion of flood risk type in each land use class. First, using logical operators, we can subset and sum the total area of flood zones within each land use type. Then, we can divide over the total area of each land use class.
 
 ```{r}
 # getting total agriculture area
@@ -229,7 +248,7 @@ urbarea<- sum(expanse(landuse[landuse$landuse=="Urban"],unit = "km"))
 frurb <- fl_urb/urbarea
 ```
 
-Calculating proportion of each type of flood risk
+We can also calculate the proportion of each flood risk type in each land use class.
 
 ```{r}
 #getting zone categories
@@ -243,11 +262,7 @@ for (i in 1:length(zonecats)){
   agzonal$area[i] = sum(expanse(luflood[luflood$landuse=="Agricultural" & luflood$zones == zonecats[i]],
                      unit = "km"))
 }
-```
 
-urban
-
-```{r}
 
 #calculating and creating data frame for urban land
 urbzonal = data.frame(zonecats,rep(1,length(zonecats)))
@@ -257,31 +272,9 @@ urbzonal$area[i] = sum(expanse(luflood[luflood$landuse=="Urban" & luflood$zones 
                      unit = "km"))
 }
 
-totalframe <- data.frame(zonecats,rep(1,length(zonecats)))
-names(totalframe) <-c("risk","area")
-totalframe$area <- urbzonal$area+ agzonal$area
-# level_order <- c("high risk", "moderate risk", "low risk")
-# totalframe$risk <- factor(totalframe$risk, levels = level_order)
-par(mar = c(5,5,6,3))
-barplot(totalframe$area,names.arg =level_order,col = pal[3],
-        main = "Land Area Covered by\n Each Flood Risk\n Type in Yolo and Sacramento County",
-        ylab = expression(area~(km^2)))
 ```
 
-Grouped stacked bar plots to show the distribution of the three flood risk categories across urban and agricultural land in the two counties.
-
-```{r}
-# order that legend should be in
- level_order <- c("high risk", "moderate risk", "low risk")
-# 
-# # modify the factor levels of the fill variable
- areadata$flood.risk <- factor(areadata$flood.risk, levels = level_order)
-# creating color palette
-
-
-```
-
-Then we use the following code to write data to shapefile for further visualization in ArcGIS pro
+Then we used the following code to write data to shapefile for further visualization in ArcGIS pro
 
 ```{r}
 #writing data to shapefile for further visualization in arcgis pro
@@ -295,7 +288,7 @@ writeVector(landuse,"./processeddata/croppedlanduse.shp")}
 ## Conclusion
 
 Overall, we found that nearly the entire agricultural and urban land in both Yolo and Sacramento counties falls within flood zones, with 99.5% and 96.3% of the land area affected, respectively. Notably, agricultural land appears to be more susceptible to flooding than urban land, with approximately 58.6% of agricultural land in high-risk flood zones, compared to only 6.8% of urban land in high-risk flood zones. In terms of moderate risk, urban lands fall into much more moderate risk zones, with 84.7% compared to 38.3% of agriculture. Lastly, both countries have significantly small low risk zones, agricultural land accounts for about 2.6% of the area while urban land accounts for about 4.9%.\
-In the future, we plan to expand our analysis with additional counties, and eventually the entire state of California. We also aim to develop a model based on several predictor variables to show how flood risk varies by different location. Furthermore, we would like to investigate the relationship between flood vulnerability and other factors such as population, temperature, etc. To improve workflow efficiency, we could try to create more functions, particularly in the categorizing and calculating portions of our project.
+Because of the lack of quantification of how FEMA's flood zone risks were defined in the dataset, it was difficult to identify any relations between land-use and flood risks. FEMA's flood risk polygons were created for the National Flood Insurance Program, and consequently do not provide data that is extremely helpful in predicting flood events. Also, since the land use data was derived from a crop mapping dataset, it did not provide a full scope of the types of land in the areas of analysis. In the future, we plan to expand our analysis with additional counties, and eventually the entire state of California. We also aim to develop a model based on several predictor variables to show how flood risk varies by different location. Furthermore, we would like to investigate the relationship between flood vulnerability and other factors such as population, temperature, etc. To improve workflow efficiency, we could try to create more functions, particularly in the categorizing and calculating portions of our project.
 
 ## Works Cited
 
