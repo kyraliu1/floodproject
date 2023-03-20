@@ -8,7 +8,7 @@ output: pdf_document
 
 Despite being known for hot and dry weather conditions, the entire state of California is prone to floods; many of which can potentially cause widespread damage and disruption. Understanding the distribution of flood-risk zones and the type of land use in each zone is critical for developing effective flood management strategies.(Pattison & Lane, 2011). The state's land use patterns, particularly relating to rapid urbanization and agricultural development have altered natural drainage patterns, increasing the risk of flooding in areas that were previously less susceptible. In addition, development in flood-prone areas, such as near rivers or in low-lying regions, has put more people and infrastructure in harm's way.
 
-Overall, California's complex combination of geography, climate, and land use makes it a challenging environment to manage flood risk (Huang et al., 2020). As local residents, we are acutely aware of the impact that flooding can have on Yolo and Sacramento County. In this project, we seek to delve deeper into the distribution of flood-risk zones and the types of land use in each zone, with the ultimate goal of developing strategies to better prepare for and mitigate the effects of future flooding events.
+Overall, California's complex combination of geography, climate, and land use makes it a challenging environment to manage flood risk (Huang et al., 2020). As local residents, we are acutely aware of the impact that flooding can have on Yolo and Sacramento County. In this project, we seek to delve deeper into the flood-risk zones and the types of land use in each zone. We aim to determine the distribution of flood risks across different land use types in Yolo and Sacramento County, California. Ulitmately we would like to employ this in developing strategies to better prepare for and mitigate the effects of future flooding events.
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -25,10 +25,12 @@ library(wesanderson) # color palette
 
 ## Data Processing
 
-This project employs two datasets. The first dataset is the National Flood Hazard Layer from the Federal Emergency Management Agency (FEMA). This is a geospatial database that contains current effective flood hazard data, primarily used to support the National Flood Insurance Program. To gain a better understanding of this data, we utilized the NFHL ArcGIS Viewer for visualization. After downloading the data and loading it into R, we were able to see the 32 layers present in the data. Initially, we extracted two layers, one containing flood-zone boundaries and one containing flood-zone areas. Taking the names of these two layers allowed us to understand that the flood-zone areas included the boundaries as well as the risk-types, leading us to focus on that layer for the remainder of our analysis. FEMA categorizes flood risks into 7 types. For the purposes of this project, the types were categorized as either high-risk, moderate-risk, or low-risk.
+This project employs three datasets. The first dataset is the National Flood Hazard Layer from the Federal Emergency Management Agency (FEMA). This is a geospatial database that contains current effective flood hazard data, primarily used to support the National Flood Insurance Program. To gain a better understanding of this data, we utilized the NFHL ArcGIS Viewer for visualization. After downloading the data and loading it into R, we were able to see the 32 layers present in the data. Initially, we extracted two layers, one containing flood-zone boundaries and one containing flood-zone areas. Taking the names of these two layers allowed us to understand that the flood-zone areas included the boundaries as well as the risk-types, leading us to focus on that layer for the remainder of our analysis. FEMA categorizes flood risks into 7 types. For the purposes of this project, the types were categorized as either high-risk, moderate-risk, or low-risk.
 
-The second dataset is the 2019 statewide crop mapping GIS shapefile from the California Natural Resources Agency (CRNA) managed by the California Department of Water Resources. This dataset contains information about the distribution of crops as well as urban land in the state of California. This project was interested in only the differences between agricultural and urban land, so all of the crops were categorized as agricultural land.\
-\
+The second dataset is the 2019 statewide crop mapping GIS shapefile from the California Natural Resources Agency (CRNA) managed by the California Department of Water Resources. This dataset contains information about the distribution of crops as well as urban land in the state of California. This project was interested in only the differences between agricultural and urban land, so all of the crops were categorized as agricultural land.
+
+Additionally, we obtained administrative boundaries for the U.S. at the county level using the geodata package in R. The package obtains data from the Database of Global Administrative Areas.
+
 Much of our data analysis involved processing the data for use. Because of this, we created a function to help streamline the process, specifically for reproducibility. This function allows the user to put in any county in California and get land use data and national flood hazard layer for that county and saves it as rds. This allows us to process data for multiple counties much more efficiently. Also, it allows us to save a much smaller (cropped) data set for an individual county rather than having to access both statewide data sets all at once.
 
 The function takes in a string of the county's name. If the county exists in California (case insensitive), then it crops both data sets to the specified county and saves each subset data as a RDS. If the county, as inputted, is not in California, the function breaks and returns an error which states that the county does not exist in California. Within this function, we obtain data for the USA from the geodata package in R and extract only border of the desired county. Then we use this to crop the flood and land-use data to only the input county. It tells the user when each file has been downloaded, or if the file already exists in the directory (in which case a new file is not created).
@@ -106,7 +108,7 @@ countydata$flood <- readRDS(fldrds)
 
 ```
 
-Using our created function, we obtained data for two counties, Yolo and Sacramento. We then joined them by appending the datasets so that we had one SpatVector for land use and one for flood risks. Then, we categorized the flood risks and the land use types for our project. In this project, we have 2 land-use classes: urban and agricultural, and 4 flood-risk categories: high, high coastal, moderate, and low. We did this using several logical operators and subsetting the columns in order to change the data in that column to the desired categories. Once we categorized the data, we intersected the flood and land-use data. Using this intersected data, we created visualizations of the distribution of flood risk across the two counties for the different land-use types.
+Using our created function, we obtained data for two counties, Yolo and Sacramento. We then joined them by appending the datasets so that we had one SpatVector for land use and one for flood risks. Then, we categorized the flood risks and the land use types for our project. In this project, we have 2 land-use classes: urban and agricultural, and 3 flood-risk categories: high, moderate, and low. We did this using several logical operators and subsetting the columns in order to change the data in that column to the desired categories. Once we categorized the data, we intersected the flood and land-use data. Using this intersected data, we created visualizations of the distribution of flood risk across the two counties for the different land-use types.
 
 ```{r}
 # Using function to get data
@@ -125,9 +127,11 @@ landuse <- rbind(yololu,saclu) # land use for both counties
 floodarea<- rbind(floodyolo,floodsac) # flood risk for both counties
 initclasses <- unique(landuse$SYMB_CLASS)
 knitr::kable(table(floodarea$FLD_ZONE),col.names = c("risk type","count"),
-             caption= "Table 1. Initial Counts for Flood Zone Designations in Data")
+             caption= "Initial Counts for Flood Zone Designations in Data")
 initzones <- unique(floodarea$FLD_ZONE)
-knitr::kable(table(landuse$SYMB_CLASS),col.names = c('crop mapping category','count'))
+knitr::kable(table(landuse$SYMB_CLASS),
+             col.names = c('crop mapping category','count'),
+             caption = "Initial Counts for Land-Use Designations in Data")
 ```
 
 ```{r}
@@ -199,18 +203,20 @@ legend(x="bottomleft",legend = c('high risk',"moderate risk","low risk"), col = 
 After mapping the different flood zones, it is helpful to plot it in a different form to get a better understanding of their distribution. First, we created a bar plot showing the overall distribution of the types of flood zones. First we created a dataframe of the county, flood zones (including their type), flood zone area, and the land use type. Then, using the aggregate function in the stats package, we were able to sum the areas of each type of flood zone. We then created a bar plot with base graphics to show this data.
 
 ```{r}
-
+#creating area dataframe
 areadata <-data.frame(luflood$COUNTY,
                    luflood$zones,expanse(luflood,unit = 'km'),
                    luflood$landuse,luflood$zoneord)
 
 names(areadata)<- c("county","flood.risk","area","land.use","order")
+#total area datagrame
 totarea <- stats::aggregate(area ~ flood.risk, areadata, sum)
 
 level_order <- c("low risk", "moderate risk", "high risk")
 
 # convert the flood_risk column to a factor with the desired level order
 totarea$flood.risk <- factor(totarea$flood.risk, levels = level_order)
+#plotting
 par(mar = c(4,5,6,4))
 barplot(totarea$area, names.arg = totarea$flood.risk, col = c(pal[1],pal[3],pal[2]),
         main = "Land Area Covered by\n Each Flood Risk\n Type in Yolo and Sacramento County",
@@ -274,16 +280,6 @@ urbzonal$area[i] = sum(expanse(luflood[luflood$landuse=="Urban" & luflood$zones 
 
 ```
 
-Then we used the following code to write data to shapefile for further visualization in ArcGIS pro
-
-```{r}
-#writing data to shapefile for further visualization in arcgis pro
-newfi <- "./processeddata/luflood.shp"
-if (!file.exists(newfi)){
-  dir.create("./processeddata")
-writeVector(luflood,newfi)
-writeVector(landuse,"./processeddata/croppedlanduse.shp")}
-```
 
 ## Conclusion
 
